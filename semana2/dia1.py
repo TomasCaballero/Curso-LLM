@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import anthropic
 from IPython.display import Markdown, display, update_display
-import google.generativeai
+# import google.generativeai
 
 
 load_dotenv()
