@@ -21,7 +21,8 @@ openai = OpenAI()
 
 system_message = "Eres un asistente útil para una aerolínea llamada FlightAI. "
 system_message += "Da respuestas breves y corteses, de no más de una oración. "
-system_message += "Se siempre preciso. Si no sabes la respuesta, dilo."
+system_message += "Se siempre preciso. Si no sabes la respuesta, dilo. "
+system_message += "Después de dar el precio de un billete, siempre pregunta si desea reservarlo."
 
 # -------------------------- Funciones para obtener el precio de los billetes --------------------------
 ticket_prices = {"londres": "$799", "parís": "$899", "tokyo": "$1400", "berlín": "$499"}
@@ -31,10 +32,13 @@ def get_ticket_price(destination_city):
     city = destination_city.lower()
     return ticket_prices.get(city, "Unknown")
 
+def reserve_ticket():
+    print("Tool reserve_ticket called")
+    return "¡Billete reservado con éxito!"
 
 price_function = {
     "name": "get_ticket_price",
-    "description": "Obtén el precio de un billete de ida y vuelta a la ciudad de destino. Llámalo siempre que necesites saber el precio del billete, por ejemplo, cuando un cliente pregunte '¿Cuánto cuesta un billete a esta ciudad?'",
+    "description": "Obtén el precio de un billete de ida y vuelta a la ciudad de destino. Llámalo siempre que necesites saber el precio del billete, por ejemplo, cuando un cliente pregunte '¿Cuánto cuesta un billete a esta ciudad?'. Luego pregunta si desea reservar el billete.",
     "parameters": {
         "type": "object",
         "properties": {
@@ -47,22 +51,48 @@ price_function = {
         "additionalProperties": False
     }
 }
+
+reserve_function = {
+    "name": "reserve_ticket",
+    "description": "Reserva un billete de ida y vuelta. Llámalo cuando el cliente confirme que desea reservar el billete.",
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": False
+    }
+}
+
 # ------------------------------------------------------------------------
 
 # -------------------------- Funciones para manejar las herramientas --------------------------
-tools = [{"type": "function", "function": price_function}]
+tools = [
+    {"type": "function", "function": price_function},
+    {"type": "function", "function": reserve_function}
+]
 
 def handle_tool_call(message):
     tool_call = message.tool_calls[0]
-    arguments = json.loads(tool_call.function.arguments)
-    city = arguments.get('destination_city')
-    price = get_ticket_price(city)
-    response = {
-        "role": "tool",
-        "content": json.dumps({"destination_city": city,"price": price}),
-        "tool_call_id": message.tool_calls[0].id
-    }
-    return response, city
+    function_name = tool_call.function.name
+    
+    if function_name == "get_ticket_price":
+        arguments = json.loads(tool_call.function.arguments)
+        city = arguments.get('destination_city')
+        price = get_ticket_price(city)
+        response = {
+            "role": "tool",
+            "content": json.dumps({"destination_city": city, "price": price}),
+            "tool_call_id": message.tool_calls[0].id
+        }
+        return response, city
+    elif function_name == "reserve_ticket":
+        result = reserve_ticket()
+        response = {
+            "role": "tool",
+            "content": json.dumps({"reservation_status": result}),
+            "tool_call_id": message.tool_calls[0].id
+        }
+        return response, None
 
 # -------------------------- Funciones para generar imágenes --------------------------
 def artist(city):
